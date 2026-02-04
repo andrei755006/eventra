@@ -1,12 +1,1 @@
-syntax = "proto3";
-
-package patient.events;
-option java_multiple_files = true;
-
-message PatientEvent {
-  string patientId = 1;
-  string name = 2;
-  string email = 3;
-  string event_type = 4;
-  repeated string roles = 5;
-}
+../../../../../shared-proto/proto/patient/v1/patient_event.proto

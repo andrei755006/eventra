@@ -6,38 +6,38 @@ import { join } from 'path';
 
 @Controller()
 export class IngestionController {
-    private patientProto: any;
+    private patientProto: protobuf.Type;
 
     constructor() {
         this.initProto();
     }
 
     private async initProto() {
-        const root = await protobuf.load(join(__dirname, 'proto/patient_event.proto'));
-        this.patientProto = root.lookupType('patient.events.PatientEvent');
+        // Поднимаемся к корню shared-proto
+        const protoPath = join(__dirname, '../../../../shared-proto/proto/patient/v1/patient_event.proto');
+
+        try {
+            const root = await protobuf.load(protoPath);
+            // ВАЖНО: берем в точности то, что в package файла .proto
+            this.patientProto = root.lookupType('patient.events.PatientEvent');
+            console.log('✅ Account Service: Proto loaded from', protoPath);
+        } catch (e) {
+            console.error('❌ Account Service: Failed to load proto!', e);
+        }
     }
 
     @EventPattern('patient')
     async handlePatientCreated(@Payload() data: any) {
-        console.log('--- EVENTRA INGESTION - ACCOUNT SERVICE: RECEIVED EVENT ---');
+        if (!this.patientProto) {
+            console.warn('⏳ Proto not ready yet, skipping...');
+            return;
+        }
+
         try {
-            let buffer: Buffer;
-
-            if (Buffer.isBuffer(data)) {
-                buffer = data;
-            } else if (typeof data === 'string') {
-                // Если пришла строка (как мы видим в дебаге), превращаем её в Buffer
-                buffer = Buffer.from(data, 'utf-8');
-            } else if (data && data.value) {
-                buffer = Buffer.isBuffer(data.value) ? data.value : Buffer.from(data.value);
-            } else {
-                // На всякий случай для других форматов
-                buffer = Buffer.from(data);
-            }
-
-            if (!buffer || buffer.length === 0) {
-                throw new Error('Buffer is empty');
-            }
+            // Извлекаем Buffer из Kafka payload
+            const buffer = Buffer.isBuffer(data) ? data :
+                (data.value && Buffer.isBuffer(data.value)) ? data.value :
+                    Buffer.from(data.value || data);
 
             const message = this.patientProto.decode(buffer);
             const patientData = this.patientProto.toObject(message, {
@@ -47,13 +47,9 @@ export class IngestionController {
                 arrays: true,
             });
 
-            // helper
             console.log('\n' + '👤 '.repeat(10) + 'ACCOUNT SERVICE' + ' 👤'.repeat(10));
-            console.log('🚀 NEW USER SYNC RECEIVED');
-            console.log('='.repeat(50));
             console.dir({
                 service: 'ACCOUNT-SYNC',
-                timestamp: new Date().toISOString(),
                 payload: {
                     id: patientData.patientId,
                     name: patientData.name,
