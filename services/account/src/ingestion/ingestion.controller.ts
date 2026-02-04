@@ -19,7 +19,7 @@ export class IngestionController {
 
     @EventPattern('patient')
     async handlePatientCreated(@Payload() data: any) {
-        console.log('--- ACCOUNT SERVICE: RECEIVED EVENT ---');
+        console.log('--- EVENTRA INGESTION - ACCOUNT SERVICE: RECEIVED EVENT ---');
         try {
             let buffer: Buffer;
 
@@ -44,9 +44,23 @@ export class IngestionController {
                 longs: String,
                 enums: String,
                 defaults: true,
+                arrays: true,
             });
 
-            console.log(`✅ SUCCESS! Account Service synced: ${patientData.name} (ID: ${patientData.patientId})`);
+            // helper
+            console.log('\n' + '👤 '.repeat(10) + 'ACCOUNT SERVICE' + ' 👤'.repeat(10));
+            console.log('🚀 NEW USER SYNC RECEIVED');
+            console.log('='.repeat(50));
+            console.dir({
+                service: 'ACCOUNT-SYNC',
+                timestamp: new Date().toISOString(),
+                payload: {
+                    id: patientData.patientId,
+                    name: patientData.name,
+                    roles: patientData.roles
+                }
+            }, { depth: null, colors: true });
+            console.log('='.repeat(50) + '\n');
 
         } catch (e) {
             console.error('❌ Account ingestion error:', e.message);

@@ -26,7 +26,7 @@ export class IngestionController {
 
     @EventPattern('patient')
     async handlePatientCreated(@Payload() data: any) {
-        console.log('--- EVENTRA INGESTION: RECEIVED RAW DATA ---');
+        console.log('--- EVENTRA INGESTION - ANALYTICS SERVICE: RECEIVED EVENT ---');
 
         try {
             // В NestJS + KafkaJS данные обычно прилетают как объект с метаданными.
@@ -48,9 +48,23 @@ export class IngestionController {
                 longs: String,
                 enums: String,
                 defaults: true,
+                arrays: true,
             });
 
-            console.log(`✅ SUCCESS! Decoded Patient: ${patientData.name} (ID: ${patientData.patientId})`);
+            //helper
+            console.log('\n' + '📊 '.repeat(10) + 'ANALYTICS SERVICE' + ' 📊'.repeat(10));
+            console.log('🚀 NEW DATA FOR ANALYSIS');
+            console.log('='.repeat(50));
+            console.dir({
+                service: 'ANALYTICS-ENGINE',
+                timestamp: new Date().toISOString(),
+                payload: {
+                    id: patientData.patientId,
+                    eventType: patientData.eventType,
+                    roles: patientData.roles
+                }
+            }, { depth: null, colors: true });
+            console.log('='.repeat(50) + '\n');
 
             // Сохранение в БД
             await this.repository.save(this.repository.create({
@@ -64,6 +78,8 @@ export class IngestionController {
         } catch (err) {
             console.error('[Error] Decoding failed:', err.message);
             console.log('Raw data was:', data);
+            console.log('--- RECEIVED KAFKA DATA ---');
+            console.dir(data, { depth: null });
         }
     }
 
